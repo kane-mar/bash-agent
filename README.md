@@ -18,7 +18,7 @@ source ./skills.sh clean-code  # import a skill
 ./agent.sh                   # start the agent loop
 ```
 
-You need `$OPENROUTER_API_KEY` set in your environment.
+You need at least one API key set in your environment (see [Environment variables](#environment-variables) below).
 
 ## Usage
 
@@ -35,9 +35,26 @@ An interactive REPL that:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL` | `anthropic/claude-sonnet-4-20250514` | OpenRouter model ID |
+| `PROVIDER` | _(auto-detect)_ | Force a provider: `openrouter`, `deepseek`, `openai`, or `anthropic` |
+| `MODEL` | _(per provider, see below)_ | Model ID (e.g. `gpt-4o`, `deepseek-v4-flash`, `claude-sonnet-4-20250514`) |
 | `SYSTEM_PROMPT` | `You are a helpful assistant in a bash environment.` | System prompt |
-| `OPENROUTER_API_KEY` | _(required)_ | OpenRouter API key |
+| `OPENROUTER_API_KEY` | — | API key for OpenRouter |
+| `DEEPSEEK_API_KEY` | — | API key for DeepSeek |
+| `OPENAI_API_KEY` | — | API key for OpenAI |
+| `ANTHROPIC_API_KEY` | — | API key for Anthropic |
+
+**Provider auto-detection**: If `PROVIDER` is not set, the agent checks which API keys are available and picks the first match in this order: OpenRouter → DeepSeek → OpenAI → Anthropic. If you have multiple keys, set `PROVIDER` explicitly to choose one.
+
+**Default models per provider**:
+
+| Provider | Default Model |
+|----------|---------------|
+| OpenRouter | `openrouter/free` |
+| DeepSeek | `deepseek-v4-flash` |
+| OpenAI | `gpt-4o` |
+| Anthropic | `claude-sonnet-4-20250514` |
+
+All providers are accessed via OpenAI-compatible chat completions endpoints. Anthropic is routed through its [`/v1/openai/chat/completions`](https://docs.anthropic.com/en/api/openai-compatible) proxy so the request format is identical across all four.
 
 **Tool calls** — the LLM can use these tools:
 
@@ -74,7 +91,9 @@ When a skill is imported:
 │  > your input                       │
 │       ↓                             │
 │  ┌─────────────────────────┐        │
-│  │  LLM (OpenRouter)       │        │
+│  │  LLM (OpenRouter /       │        │
+│  │  DeepSeek / OpenAI /     │        │
+│  │  Anthropic)              │        │
 │  │  ← text or tool calls   │        │
 │  └─────────┬───────────────┘        │
 │            ↓                        │
@@ -90,7 +109,7 @@ When a skill is imported:
 - `bash 4+` (for `mapfile` support)
 - `curl` — API calls
 - `jq` — JSON manipulation
-- `OPENROUTER_API_KEY` — set in environment
+- At least one API key: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`
 
 ## License
 
