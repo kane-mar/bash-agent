@@ -1,24 +1,83 @@
 # Bash Agent
 
-A minimal AI agent loop written entirely in bash — under 60 lines. It calls LLMs via OpenRouter, runs tools (bash, read, write, edit), and can import skills from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library.
+A minimal AI agent loop written entirely in bash (~84 lines). It calls LLMs via OpenRouter, DeepSeek, or OpenAI, runs tools (bash, read, write, edit), and can import skills from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library.
 
 ## Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `agent.sh` | 56 | Main agent loop — REPL, LLM calls, tool execution |
+| `agent.sh` | 84 | Main agent loop — REPL, LLM calls, tool execution |
 | `skills.sh` | 58 | Skill importer — lists and loads pi agent skills |
 
-## Quick Start
+## Getting Started
+
+### Prerequisites
+
+- **bash 4+** (for `mapfile` support)
+- **curl** — API calls
+- **jq** — JSON manipulation
+- **An API key** from one of the supported providers
+
+### 1. Set your API key
+
+Set at least one of these environment variables:
 
 ```bash
-cd /Users/kane/workspaces/bash-agent
-source ./skills.sh           # list available skills
-source ./skills.sh clean-code  # import a skill
-./agent.sh                   # start the agent loop
+# Option A: OpenRouter (recommended — access many models)
+export OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Option B: DeepSeek
+export DEEPSEEK_API_KEY="sk-..."
+
+# Option C: OpenAI
+export OPENAI_API_KEY="sk-..."
 ```
 
-You need at least one API key set in your environment (see [Environment variables](#environment-variables) below).
+> **Tip:** If you have multiple keys, set `PROVIDER=openai` (or `deepseek` / `openrouter`) to pick which one to use.
+
+### 2. Clone and run
+
+```bash
+git clone git@github.com:kane-mar/bash-agent.git
+cd bash-agent
+
+# Start the agent
+./agent.sh
+```
+
+You'll see a prompt like:
+
+```
+=== Agent [provider:openrouter model:openrouter/free skills:none] ===
+
+>
+```
+
+### 3. Try it out
+
+```bash
+> what files are in this directory?
+```
+
+The LLM will use its tools to explore, and you'll see tool calls and results stream back:
+
+```
+  ◆ bash {"command":"ls -la"}
+total 32
+...
+```
+
+Type `exit` to quit.
+
+### Optional: Import skills
+
+Skills extend the agent with specialized capabilities. They come from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library and must be installed separately. Once available:
+
+```bash
+source ./skills.sh                 # list available skills
+source ./skills.sh clean-code      # import a skill
+./agent.sh                         # start the agent with the skill loaded
+```
 
 ## Usage
 
@@ -27,7 +86,7 @@ You need at least one API key set in your environment (see [Environment variable
 An interactive REPL that:
 
 1. Reads your input
-2. Sends it (with conversation history) to an LLM via OpenRouter
+2. Sends it (with conversation history) to an LLM
 3. If the LLM returns tool calls, executes them and feeds results back
 4. Repeats until the LLM returns a text response
 
@@ -35,15 +94,14 @@ An interactive REPL that:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PROVIDER` | _(auto-detect)_ | Force a provider: `openrouter`, `deepseek`, `openai`, or `anthropic` |
-| `MODEL` | _(per provider, see below)_ | Model ID (e.g. `gpt-4o`, `deepseek-v4-flash`, `claude-sonnet-4-20250514`) |
+| `PROVIDER` | _(auto-detect)_ | Force a provider: `openrouter`, `deepseek`, or `openai` |
+| `MODEL` | _(per provider, see below)_ | Model ID (e.g. `gpt-4o`, `deepseek-v4-flash`) |
 | `SYSTEM_PROMPT` | `You are a helpful assistant in a bash environment.` | System prompt |
 | `OPENROUTER_API_KEY` | — | API key for OpenRouter |
 | `DEEPSEEK_API_KEY` | — | API key for DeepSeek |
 | `OPENAI_API_KEY` | — | API key for OpenAI |
-| `ANTHROPIC_API_KEY` | — | API key for Anthropic |
 
-**Provider auto-detection**: If `PROVIDER` is not set, the agent checks which API keys are available and picks the first match in this order: OpenRouter → DeepSeek → OpenAI → Anthropic. If you have multiple keys, set `PROVIDER` explicitly to choose one.
+**Provider auto-detection**: If `PROVIDER` is not set, the agent checks which API keys are available and picks the first match in this order: OpenRouter → DeepSeek → OpenAI. If you have multiple keys, set `PROVIDER` explicitly to choose one.
 
 **Default models per provider**:
 
@@ -52,9 +110,8 @@ An interactive REPL that:
 | OpenRouter | `openrouter/free` |
 | DeepSeek | `deepseek-v4-flash` |
 | OpenAI | `gpt-4o` |
-| Anthropic | `claude-sonnet-4-20250514` |
 
-All providers are accessed via OpenAI-compatible chat completions endpoints. Anthropic is routed through its [`/v1/openai/chat/completions`](https://docs.anthropic.com/en/api/openai-compatible) proxy so the request format is identical across all four.
+All providers are accessed via OpenAI-compatible chat completions endpoints.
 
 **Tool calls** — the LLM can use these tools:
 
@@ -92,8 +149,7 @@ When a skill is imported:
 │       ↓                             │
 │  ┌─────────────────────────┐        │
 │  │  LLM (OpenRouter /       │        │
-│  │  DeepSeek / OpenAI /     │        │
-│  │  Anthropic)              │        │
+│  │  DeepSeek / OpenAI)      │        │
 │  │  ← text or tool calls   │        │
 │  └─────────┬───────────────┘        │
 │            ↓                        │
@@ -109,7 +165,7 @@ When a skill is imported:
 - `bash 4+` (for `mapfile` support)
 - `curl` — API calls
 - `jq` — JSON manipulation
-- At least one API key: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`
+- At least one API key: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENAI_API_KEY`
 
 ## License
 
