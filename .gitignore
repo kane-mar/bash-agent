@@ -15,6 +15,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Workspace dir (removed — sandbox is repo root)
+workspace/
+
 # IDE
 .idea/
 .vscode/

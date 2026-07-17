@@ -10,7 +10,12 @@ bash_agent_list_skills() {
     echo "Available skills:"
     for skill in "$SKILLS_DIR"/*/SKILL.md "$SKILLS_DIR"/*.md; do
         [ -f "$skill" ] || continue
-        dir=$(dirname "$skill" 2>/dev/null); name=$(basename "$dir" 2>/dev/null || basename "$skill" .md); [ "$name" = "skills" ] && name="llm-council"
+        # Extract name: for dir/SKILL.md use dir basename; for flat name.md use filename sans .md
+        if [[ "$skill" == */SKILL.md ]]; then
+            name="$(basename "$(dirname "$skill")")"
+        else
+            name="$(basename "$skill" .md)"
+        fi
         desc=$(grep '^description:' "$skill" 2>/dev/null | head -1 | sed 's/description: "*//;s/"$//')
         [ -n "$desc" ] || desc="(no description)"
         printf "  %-25s %s\n" "$name" "$desc"
@@ -40,7 +45,7 @@ bash_agent_import_skill() {
 
     # Export the metadata as environment variables
     BASH_AGENT_SKILL="$name"
-    export BASH_AGENT_SKILL SKILLS_DIR
+    export BASH_AGENT_SKILL
     echo "imported skill: $name"
 }
 

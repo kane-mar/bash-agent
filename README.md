@@ -1,26 +1,36 @@
 # Bash Agent
 
-A minimal AI agent loop written entirely in bash (~84 lines). It calls LLMs via OpenRouter, DeepSeek, or OpenAI, runs tools (bash, read, write, edit), and can import skills from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library.
+A minimal AI agent loop written entirely in bash (~76 lines). It calls LLMs via OpenRouter, DeepSeek, or OpenAI, runs tools (bash, read, write, edit), and can import skills from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library.
 
 ## Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `agent.sh` | 84 | Main agent loop — REPL, LLM calls, tool execution |
-| `skills.sh` | 58 | Skill importer — lists and loads pi agent skills |
+| `agent.sh` | 76 | Main agent loop — bootstrap, config, tool runner, REPL |
+| `skills.sh` | 63 | Skill importer — lists and loads pi agent skills |
 
-## Getting Started
+## Installation
 
 ### Prerequisites
 
-- **bash 4+** (for `mapfile` support)
+- **bash 3+** (for `pipefail` support)
 - **curl** — API calls
-- **jq** — JSON manipulation
+- **jq** — JSON manipulation (install via `brew install jq` or `apt install jq`)
 - **An API key** from one of the supported providers
 
-### 1. Set your API key
+### Install
 
-Set at least one of these environment variables:
+```bash
+git clone git@github.com:kane-mar/bash-agent.git
+cd bash-agent
+
+# Copy and edit your API key
+cp .env.example .env
+```
+
+### Set your API key
+
+Set at least one of these environment variables in `.env` or your shell profile:
 
 ```bash
 # Option A: OpenRouter (recommended — access many models)
@@ -33,15 +43,11 @@ export DEEPSEEK_API_KEY="sk-..."
 export OPENAI_API_KEY="sk-..."
 ```
 
-> **Tip:** If you have multiple keys, set `PROVIDER=openai` (or `deepseek` / `openrouter`) to pick which one to use.
+> **Tip:** If you have multiple keys, set `PROVIDER=openai` (or `deepseek` / `openrouter`) to pick which one to use. If unset, the agent auto-detects in order: OpenRouter → DeepSeek → OpenAI.
 
-### 2. Clone and run
+### Run
 
 ```bash
-git clone git@github.com:kane-mar/bash-agent.git
-cd bash-agent
-
-# Start the agent
 ./agent.sh
 ```
 
@@ -53,7 +59,7 @@ You'll see a prompt like:
 >
 ```
 
-### 3. Try it out
+### Try it out
 
 ```bash
 > what files are in this directory?
@@ -69,15 +75,17 @@ total 32
 
 Type `exit` to quit.
 
-### Optional: Import skills
+## Skills
 
-Skills extend the agent with specialized capabilities. They come from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library and must be installed separately. Once available:
+Skills extend the agent with specialized capabilities from the [pi agent skills](https://github.com/earendil-works/pi-coding-agent) library. Install the skills library separately, then:
 
 ```bash
 source ./skills.sh                 # list available skills
 source ./skills.sh clean-code      # import a skill
 ./agent.sh                         # start the agent with the skill loaded
 ```
+
+When a skill is imported, its instructions are automatically injected into the system prompt so the LLM knows how to use it.
 
 ## Usage
 
@@ -96,12 +104,10 @@ An interactive REPL that:
 |----------|---------|-------------|
 | `PROVIDER` | _(auto-detect)_ | Force a provider: `openrouter`, `deepseek`, or `openai` |
 | `MODEL` | _(per provider, see below)_ | Model ID (e.g. `gpt-4o`, `deepseek-v4-flash`) |
-| `SYSTEM_PROMPT` | `You are a helpful assistant in a bash environment.` | System prompt |
+| `SYSTEM_PROMPT` | `You are a coding agent... Work inside \$PWD. Be direct and thorough.` | System prompt |
 | `OPENROUTER_API_KEY` | — | API key for OpenRouter |
 | `DEEPSEEK_API_KEY` | — | API key for DeepSeek |
 | `OPENAI_API_KEY` | — | API key for OpenAI |
-
-**Provider auto-detection**: If `PROVIDER` is not set, the agent checks which API keys are available and picks the first match in this order: OpenRouter → DeepSeek → OpenAI. If you have multiple keys, set `PROVIDER` explicitly to choose one.
 
 **Default models per provider**:
 
@@ -124,7 +130,7 @@ Type `exit` to quit.
 
 ### `skills.sh`
 
-Import pi agent skills into your bash agent session. Must be sourced (not executed) so the environment persists.
+Import pi agent skills. Must be sourced (not executed) so the environment persists.
 
 ```bash
 source ./skills.sh                    # list all skills
@@ -133,11 +139,12 @@ source ./skills.sh kanban-board tdd   # import multiple
 source ./skills.sh --help             # usage
 ```
 
-When a skill is imported:
+## Requirements
 
-- Its **SKILL.md** metadata is read (exports `$BASH_AGENT_SKILL`)
-- Any **bash scripts** in `scripts/` are sourced (functions become available)
-- The agent can then reference the skill in its system prompt or use its functions
+- `bash 3+` (for `pipefail` support)
+- `curl` — API calls
+- `jq` — JSON manipulation
+- At least one API key: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENAI_API_KEY`
 
 ## Architecture
 
@@ -153,19 +160,23 @@ When a skill is imported:
 │  │  ← text or tool calls   │        │
 │  └─────────┬───────────────┘        │
 │            ↓                        │
-│  tool calls → run_tool() → result   │
+│  tool calls → run() → result        │
 │  result → history → back to LLM     │
 │                                     │
 │  skills.sh ← loaded before start    │
 └─────────────────────────────────────┘
 ```
 
-## Requirements
+### Phases
 
-- `bash 4+` (for `mapfile` support)
-- `curl` — API calls
-- `jq` — JSON manipulation
-- At least one API key: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, or `OPENAI_API_KEY`
+`agent.sh` runs in six sequential phases:
+
+1. **Bootstrap** — loads `.env`, auto-detects provider from available API keys
+2. **Config** — builds `SYSTEM_PROMPT` (base + optional skill injection) and `TOOLS` JSON
+3. **Banner** — prints the agent startup line
+4. **Tool runner** — `run()` dispatches `bash`, `read`, `write`, `edit`
+5. **REPL loop** — reads input, calls LLM, executes tool calls, manages history
+6. **Exit** — `exit` or `Ctrl+D` quits
 
 ## License
 
